@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, MapPin, Droplets, TrendingUp } from "lucide-react";
+import { Send, MapPin, Droplets, TrendingUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceControls } from "./VoiceControls";
+import { MessageFeedback } from "./MessageFeedback";
+import { getRandomGreeting, getResponseTemplate, getContextualResponse } from "@/data/chatVariations";
 
 interface Message {
   id: string;
   text: string;
   sender: 'user' | 'bot';
   timestamp: Date;
+  showFeedback?: boolean;
 }
 
 interface ChatInterfaceProps {
@@ -19,13 +23,16 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hello! I'm Jal-Mitra, your groundwater guardian. I can help you understand your local water situation and provide conservation tips. Click 'Check My Location' to get started!",
+      text: getRandomGreeting(),
       sender: 'bot',
-      timestamp: new Date()
+      timestamp: new Date(),
+      showFeedback: true
     }
   ]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [feedbackData, setFeedbackData] = useState<Array<{messageId: string, feedback: 'positive' | 'negative', correction?: string}>>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -40,22 +47,36 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
     const message = userMessage.toLowerCase();
     
     if (message.includes('water') && message.includes('conserv')) {
-      return "Here are some effective water conservation tips: 1) Use drip irrigation for crops 2) Collect rainwater during monsoons 3) Plant drought-resistant crops 4) Check for leaks regularly 5) Use mulching to reduce evaporation. Would you like specific advice for your region?";
+      const template = getResponseTemplate('conservation');
+      return `${template} 1) Use drip irrigation for crops 2) Collect rainwater during monsoons 3) Plant drought-resistant crops 4) Check for leaks regularly 5) Use mulching to reduce evaporation. Would you like region-specific advice?`;
     }
     
     if (message.includes('crops') || message.includes('farm')) {
-      return "For sustainable farming with limited groundwater: Consider crop rotation with legumes, use organic matter to improve soil water retention, and plant during optimal seasons. What crops are you currently growing?";
+      const template = getResponseTemplate('crops');
+      return `${template} Consider crop rotation with legumes, use organic matter to improve soil water retention, and plant during optimal seasons. What crops are you currently growing?`;
     }
     
     if (message.includes('status') || message.includes('level')) {
-      return "To check your groundwater status, I need your location. Click the 'Check My Location' button so I can analyze the local water table data and provide specific insights for your area.";
+      const response = getContextualResponse('location_request');
+      return `${response} Click the 'Check My Location' button to get detailed analysis.`;
     }
     
-    if (message.includes('hello') || message.includes('hi')) {
-      return "Hello! I'm here to help you with groundwater management and conservation. What would you like to know about your local water resources?";
+    if (message.includes('trend') || message.includes('predict')) {
+      const template = getResponseTemplate('trends');
+      return `${template} Based on current patterns, I can provide 5-year forecasts once I have your location data.`;
     }
     
-    return "I understand you're asking about groundwater management. For the most accurate information about your area, please allow location access. I can then provide specific insights about local water levels, conservation strategies, and predictions for your region.";
+    if (message.includes('hello') || message.includes('hi') || message.includes('नमस्ते')) {
+      return getRandomGreeting();
+    }
+    
+    const responses = [
+      "I understand you're asking about groundwater management. For personalized insights, please share your location so I can provide area-specific recommendations.",
+      "That's an interesting question about water resources. Let me help you with location-based analysis and conservation strategies.",
+      "I'm here to provide intelligent groundwater insights. Would you like me to analyze your local water situation first?"
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
   };
 
   const handleSendMessage = async () => {
@@ -74,11 +95,12 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
 
     // Simulate AI response delay
     setTimeout(() => {
-      const botResponse: Message = {
+    const botResponse: Message = {
         id: (Date.now() + 1).toString(),
         text: simulateAIResponse(inputText),
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        showFeedback: true
       };
       setMessages(prev => [...prev, botResponse]);
       setIsTyping(false);
@@ -93,12 +115,27 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
     }
   };
 
+  const handleSpeechResult = (transcript: string) => {
+    setInputText(transcript);
+  };
+
+  const handleFeedback = (messageId: string, feedback: 'positive' | 'negative', correction?: string) => {
+    const feedbackEntry = { messageId, feedback, correction };
+    setFeedbackData(prev => [...prev, feedbackEntry]);
+    
+    // In a real app, this would be sent to a backend
+    console.log('Feedback collected:', feedbackEntry);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Chat with Jal-Mitra</h2>
-          <p className="text-sm text-muted-foreground">Your AI groundwater assistant</p>
+          <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
+            Chat with Jal-Mitra 
+            <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+          </h2>
+          <p className="text-sm text-muted-foreground">Enhanced AI with voice & feedback</p>
         </div>
         <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center shadow-water">
           <Droplets className="w-5 h-5 text-white" />
@@ -124,6 +161,15 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
               }`}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
+              
+              {/* Feedback for bot messages */}
+              {message.sender === 'bot' && message.showFeedback && (
+                <MessageFeedback 
+                  messageId={message.id}
+                  messageText={message.text}
+                  onFeedback={handleFeedback}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -143,6 +189,13 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
       </div>
 
       <div className="space-y-3">
+        {/* Voice Controls */}
+        <VoiceControls 
+          onSpeechResult={handleSpeechResult}
+          isListening={isListening}
+          setIsListening={setIsListening}
+        />
+        
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -184,7 +237,7 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
           />
           <Button
             type="submit"
-            disabled={!inputText.trim() || isTyping}
+            disabled={(!inputText.trim() || isTyping) && !isListening}
             className="bg-gradient-primary hover:opacity-90 transition-all duration-300 shadow-water hover:shadow-glow"
           >
             <Send className="w-4 h-4" />
