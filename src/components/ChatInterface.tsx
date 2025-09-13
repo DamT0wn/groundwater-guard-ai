@@ -46,37 +46,51 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
   const simulateAIResponse = (userMessage: string): string => {
     const message = userMessage.toLowerCase();
     
-    if (message.includes('water') && message.includes('conserv')) {
+    // Contextual response based on user query - must be directly related to their question
+    
+    // Water level queries - provide specific water level data
+    if (message.includes('water level') || message.includes('level') || message.includes('depth')) {
+      return "Based on our current data monitoring, I can provide water level information for your area. To give you the most accurate readings, please share your location so I can access the nearest monitoring stations and provide current depth measurements.";
+    }
+    
+    // Predictive insights and forecasting
+    if (message.includes('predict') || message.includes('forecast') || message.includes('future') || message.includes('trend')) {
+      return "I can provide 5-year predictive forecasts for your area using our AI models. These forecasts analyze historical patterns, seasonal variations, and climate data. Please share your location to access region-specific predictive insights and trend analysis.";
+    }
+    
+    // Flood risk queries
+    if (message.includes('flood') || message.includes('risk') || message.includes('danger')) {
+      return "I can assess flood risks and provide early warning insights for your region. Our models analyze water levels, rainfall patterns, and historical flood data. Location access will allow me to provide specific risk assessments and safety recommendations for your area.";
+    }
+    
+    // Conservation and water management
+    if (message.includes('conserv') || message.includes('save') || message.includes('management')) {
       const template = getResponseTemplate('conservation');
-      return `${template} 1) Use drip irrigation for crops 2) Collect rainwater during monsoons 3) Plant drought-resistant crops 4) Check for leaks regularly 5) Use mulching to reduce evaporation. Would you like region-specific advice?`;
+      return `${template} Based on your local water data: 1) Implement drip irrigation systems 2) Harvest rainwater during monsoons 3) Use drought-resistant crop varieties 4) Monitor and fix leaks promptly 5) Apply mulching techniques to reduce evaporation. I can provide location-specific conservation strategies once you share your area.`;
     }
     
-    if (message.includes('crops') || message.includes('farm')) {
-      const template = getResponseTemplate('crops');
-      return `${template} Consider crop rotation with legumes, use organic matter to improve soil water retention, and plant during optimal seasons. What crops are you currently growing?`;
+    // Agricultural/farming queries
+    if (message.includes('crop') || message.includes('farm') || message.includes('agricult')) {
+      return "For water-efficient agriculture in your region, I can recommend optimal crop selection, irrigation timing, and water management practices. Our data includes soil moisture patterns and seasonal water availability. Please share your location for tailored agricultural water management advice.";
     }
     
-    if (message.includes('status') || message.includes('level')) {
-      const response = getContextualResponse('location_request');
-      return `${response} Click the 'Check My Location' button to get detailed analysis.`;
+    // Status and monitoring
+    if (message.includes('status') || message.includes('monitor') || message.includes('current')) {
+      return "I can provide real-time status updates for groundwater and surface water in your area. This includes current levels, recent changes, and monitoring alerts. To access your local water status dashboard, please allow location access.";
     }
     
-    if (message.includes('trend') || message.includes('predict')) {
-      const template = getResponseTemplate('trends');
-      return `${template} Based on current patterns, I can provide 5-year forecasts once I have your location data.`;
+    // Data accuracy response - when no specific data available
+    if (message.includes('data') || message.includes('accuracy') || message.includes('source')) {
+      return "All my responses are based on verified water monitoring data from government sensors, satellite imagery, and community contributions. If I don't have specific information for your query, I'll clearly state that and offer alternative assistance. What specific water data would you like me to help you access?";
     }
     
-    if (message.includes('hello') || message.includes('hi') || message.includes('नमस्ते')) {
+    // Greeting responses
+    if (message.includes('hello') || message.includes('hi') || message.includes('hey') || message.includes('नमस्ते')) {
       return getRandomGreeting();
     }
     
-    const responses = [
-      "I understand you're asking about groundwater management. For personalized insights, please share your location so I can provide area-specific recommendations.",
-      "That's an interesting question about water resources. Let me help you with location-based analysis and conservation strategies.",
-      "I'm here to provide intelligent groundwater insights. Would you like me to analyze your local water situation first?"
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
+    // Default contextual response - always relate back to water data capabilities
+    return "I'm designed to provide accurate water-level data, predictive insights, and conservation guidance. Could you specify what type of water information you're looking for? I can help with current levels, forecasts, flood risks, or conservation strategies for your area.";
   };
 
   const handleSendMessage = async () => {

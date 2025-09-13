@@ -1,25 +1,25 @@
 // Varying greetings and response templates for dynamic conversation
 
 export const GREETING_VARIATIONS = [
-  "Hello! I'm Jal-Mitra, your groundwater guardian. I can help you understand your local water situation and provide conservation tips. Click 'Check My Location' to get started!",
+  "Hello! How can I help you with your water-related questions today?",
   
-  "नमस्ते! I'm Jal-Mitra, here to help you with groundwater management. Let's explore your local water resources together!",
+  "Hi there! I'm ready to provide you with the latest water level information. What can I help you with?",
   
-  "Welcome to Jal-Mitra! 🌊 I'm your AI assistant for groundwater insights. Ready to dive into water conservation strategies?",
+  "Greetings! I'm here to assist with any questions about water levels and predictive insights. Ask away!",
   
-  "Hi there! I'm Jal-Mitra, specializing in groundwater health and conservation. How can I assist you with your water management needs today?",
+  "Hey! Need some info on water levels or flood risks? I'm here to help.",
   
-  "Greetings! Jal-Mitra at your service. I provide personalized groundwater insights and conservation guidance. What would you like to know?",
+  "Welcome! I can provide data and insights on water levels for your area. What would you like to know?",
   
-  "Hello, water guardian! 💧 I'm Jal-Mitra, your intelligent companion for sustainable groundwater management. Let's start protecting our precious water resources!",
+  "Hello! I'm Jal-Mitra, your groundwater guardian. Ready to analyze your local water situation?",
   
-  "Welcome! I'm Jal-Mitra, combining AI with traditional water wisdom. Ready to explore smart groundwater solutions for your area?",
+  "Hi there! I'm equipped with real-time groundwater data and forecasting models. How can I assist you?",
   
-  "Hi! Jal-Mitra here - your digital water advisor. I'm equipped with local data and conservation expertise. How can I help you today?",
+  "Greetings! I specialize in water-level analysis and predictive insights for your region. What information do you need?",
   
-  "नमस्कार! I'm Jal-Mitra, bridging technology and water stewardship. Let's work together towards sustainable groundwater management!",
+  "Welcome to Jal-Mitra! I have access to comprehensive water data and conservation strategies. How may I help?",
   
-  "Salutations, earth's guardian! 🌍 I'm Jal-Mitra, helping communities make informed decisions about their precious groundwater resources."
+  "Hello! Ready to explore groundwater trends, forecasts, and conservation solutions for your area?"
 ];
 
 export const RESPONSE_TEMPLATES = {
