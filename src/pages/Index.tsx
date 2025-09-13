@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { findNearestData, computeHealthScore } from "@/data/groundwaterData";
+import { findNearestData, computeHealthScore, GROUNDWATER_DATA } from "@/data/groundwaterData";
+import { uiLabels } from "@/data/uiLabels";
 
 interface Alert {
   id: string;
@@ -23,6 +24,13 @@ interface LocationData {
   address: string;
 }
 
+export interface ChatInterfaceProps {
+  onLocationRequest: () => void;
+  isLocationLoading: boolean;
+  onLocationQuery: (location: string) => void;
+  language: 'en' | 'hi';
+}
+
 const Index = () => {
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [healthScore, setHealthScore] = useState<number | null>(null);
@@ -35,6 +43,7 @@ const Index = () => {
     status: string;
     distanceKm: number;
   } | null>(null);
+  const [language, setLanguage] = useState<'en' | 'hi'>('en');
   
   const { toast } = useToast();
 
@@ -168,8 +177,54 @@ const Index = () => {
     );
   };
 
+  // Handle location query from chat
+  const handleLocationQuery = (location: string) => {
+    const foundEntry = GROUNDWATER_DATA.find(entry => 
+      entry.district.toLowerCase() === location.toLowerCase() || 
+      entry.state.toLowerCase() === location.toLowerCase()
+    );
+
+    if (foundEntry) {
+      const score = computeHealthScore(foundEntry.level_m, foundEntry.status);
+      setHealthScore(score);
+      setGroundwaterInfo({
+        district: foundEntry.district,
+        state: foundEntry.state,
+        level: foundEntry.level_m,
+        status: foundEntry.status,
+        distanceKm: 0 // Distance is 0 as it's an exact match
+      });
+      generateAlerts(score, foundEntry.status);
+      toast({
+        title: "Groundwater Data Found",
+        description: `Displaying data for ${foundEntry.district}, ${foundEntry.state}.`,
+      });
+    } else {
+      setHealthScore(null);
+      setGroundwaterInfo(null);
+      setAlerts([]);
+      toast({
+        title: "Location Not Found",
+        description: `Could not find groundwater data for "${location}". Please try a different city or state.`,
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
+      {/* Language Switcher */}
+      <div className="flex justify-end p-4">
+        <select
+          value={language}
+          onChange={e => setLanguage(e.target.value as 'en' | 'hi')}
+          className="border border-border rounded px-2 py-1 bg-card text-foreground"
+        >
+          <option value="en">English</option>
+          <option value="hi">हिन्दी</option>
+        </select>
+      </div>
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-border sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -199,6 +254,8 @@ const Index = () => {
                 <ChatInterface 
                   onLocationRequest={handleLocationRequest}
                   isLocationLoading={isLocationLoading}
+                  onLocationQuery={handleLocationQuery}
+                  language={language}
                 />
               </CardContent>
             </Card>

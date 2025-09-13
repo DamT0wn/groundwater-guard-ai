@@ -5,13 +5,13 @@ export interface GroundwaterReading {
   lat: number;
   lon: number;
   level_m: number;
-  status: 'Critical' | 'Warning' | 'Moderate' | 'Good';
+  status: 'Critical' | 'Warning' | 'Moderate' | 'Good' | 'Safe';
 }
 
 export const GROUNDWATER_DATA: GroundwaterReading[] = [
   { state: "Maharashtra", district: "Pune", block: "Haveli", lat: 18.5204, lon: 73.8567, level_m: 12.0, status: "Critical" },
   { state: "Maharashtra", district: "Nagpur", block: "Nagpur", lat: 21.1458, lon: 79.0882, level_m: 22.5, status: "Moderate" },
-  { state: "Maharashtra", district: "Mumbai", block: "Mumbai Suburban", lat: 19.0760, lon: 72.8777, level_m: 8.5, status: "Critical" },
+  { state: "Maharashtra", district: "Mumbai", block: "Mumbai Suburban", lat: 19.0760, lon: 72.8777, level_m: 7.2, status: "Safe" },
   { state: "Delhi", district: "New Delhi", block: "Central", lat: 28.6139, lon: 77.2090, level_m: 25.0, status: "Warning" },
   { state: "Karnataka", district: "Bengaluru", block: "Bangalore Urban", lat: 12.9716, lon: 77.5946, level_m: 18.2, status: "Moderate" },
   { state: "Karnataka", district: "Mysuru", block: "Mysuru", lat: 12.2958, lon: 76.6394, level_m: 28.5, status: "Good" },
@@ -72,6 +72,9 @@ export function computeHealthScore(level_m: number, status: string): number {
       break;
     case 'Good':
       break; // No adjustment needed
+    case 'Safe':
+      score = Math.min(score, 100);
+      break;
   }
   
   return score;

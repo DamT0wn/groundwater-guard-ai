@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VoiceControls } from "./VoiceControls";
 import { MessageFeedback } from "./MessageFeedback";
-import { getRandomGreeting, getResponseTemplate, getContextualResponse } from "@/data/chatVariations";
+import { getRandomGreeting } from "@/data/chatVariations";
+import { GROUNDWATER_DATA } from "@/data/groundwaterData";
+import { GroundwaterChart } from "./GroundwaterChart";
 
 interface Message {
   id: string;
@@ -17,9 +19,29 @@ interface Message {
 interface ChatInterfaceProps {
   onLocationRequest: () => void;
   isLocationLoading: boolean;
+  onLocationQuery: (location: string) => void;
+  language: 'en' | 'hi';
 }
 
-export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInterfaceProps) => {
+const labels = {
+  en: {
+    checkLocation: "Check My Location",
+    conservationTips: "Conservation Tips",
+    trends: "Trends",
+  },
+  hi: {
+    checkLocation: "मेरी लोकेशन जांचें",
+    conservationTips: "संरक्षण सुझाव",
+    trends: "रुझान",
+  }
+};
+
+export const ChatInterface = ({
+  onLocationRequest,
+  isLocationLoading,
+  onLocationQuery,
+  language
+}: ChatInterfaceProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -33,6 +55,8 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [feedbackData, setFeedbackData] = useState<Array<{messageId: string, feedback: 'positive' | 'negative', correction?: string}>>([]);
+  const [chartComponent, setChartComponent] = useState<JSX.Element | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'hi'>(language);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -41,56 +65,110 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, chartComponent]);
 
-  const simulateAIResponse = (userMessage: string): string => {
+  // Mock trend data generator (replace with real data if available)
+  const getTrendData = (district: string) => {
+    // Example: Generate 10 years of mock data
+    const base = GROUNDWATER_DATA.find(e => e.district.toLowerCase() === district.toLowerCase());
+    if (!base) return [];
+    return Array.from({ length: 10 }, (_, i) => ({
+      name: (2016 + i).toString(),
+      level: Math.max(0, base.level_m + (Math.random() - 0.5) * 2 - i * 0.1)
+    }));
+  };
+
+  const isHindi = (text: string) =>
+    /[\u0900-\u097F]/.test(text) || language === 'hi';
+
+  const formatGroundwaterResponse = (entry: any, location: string, showTrend: boolean, lang: 'en' | 'hi') => {
+    if (lang === 'hi') {
+      return `
+<div class="bg-card border border-border rounded-xl p-4 my-4 text-base text-foreground shadow-sm">
+  <h2 class="text-lg font-semibold text-primary mb-2">भूजल स्थिति: ${entry.district}, ${entry.state}</h2>
+  <ul class="list-disc list-inside space-y-1">
+    <li><span class="font-medium">वर्तमान स्तर:</span> ${entry.level_m} मीटर</li>
+    <li><span class="font-medium">स्थिति:</span> <span class="font-medium">${entry.status === "Safe" ? "सुरक्षित" : entry.status}</span></li>
+  </ul>
+  <p class="mt-2 text-muted-foreground">डेटा स्रोत: स्थानीय डेटा सेट (मॉक)</p>
+  ${showTrend ? `<p class="mt-2 text-sm">10 वर्षों की प्रवृत्ति के लिए नीचे चार्ट देखें।</p>` : ""}
+</div>
+      `.trim();
+    }
+
+    let response = `
+<div class="bg-card border border-border rounded-xl p-4 my-4 text-base text-foreground shadow-sm">
+  <h2 class="text-lg font-semibold text-primary mb-2">Groundwater Status: ${entry.district}, ${entry.state}</h2>
+  <ul class="list-disc list-inside space-y-1">
+    <li><span class="font-medium">Current Level:</span> ${entry.level_m} m</li>
+    <li><span class="font-medium">Status:</span> <span class="font-medium">${entry.status}</span></li>
+  </ul>
+  <p class="mt-2 text-muted-foreground">Data source: Local dataset (mock)</p>
+  ${showTrend ? `<p class="mt-2 text-sm">See the chart below for the 10-year trend.</p>` : ""}
+</div>
+    `.trim();
+    return response;
+  };
+
+  const simulateAIResponse = async (userMessage: string): Promise<{text: string, chart?: JSX.Element}> => {
     const message = userMessage.toLowerCase();
-    
-    // Contextual response based on user query - must be directly related to their question
-    
-    // Water level queries - provide specific water level data
-    if (message.includes('water level') || message.includes('level') || message.includes('depth')) {
-      return "Based on our current data monitoring, I can provide water level information for your area. To give you the most accurate readings, please share your location so I can access the nearest monitoring stations and provide current depth measurements.";
+    setChartComponent(null);
+
+    // Extract location and trend intent
+    const trendMatch = /(trend|history|over time|chart|graph)/i.test(message);
+    const locationMatch = message.match(/(?:of|in)\s+([a-zA-Z\s]+)/i);
+    const location = locationMatch ? locationMatch[1].trim() : null;
+
+    if (location) {
+      const entry = GROUNDWATER_DATA.find(e =>
+        e.district.toLowerCase() === location.toLowerCase() ||
+        e.state.toLowerCase() === location.toLowerCase()
+      );
+      if (entry) {
+        let chart;
+        if (trendMatch) {
+          const chartData = getTrendData(entry.district);
+          chart = (
+            <GroundwaterChart
+              data={chartData}
+              chartType="line"
+              dataKey="level"
+              nameKey="name"
+              title={`Groundwater Level Trend: ${entry.district}`}
+            />
+          );
+          setChartComponent(chart);
+        }
+        const userLang = isHindi(userMessage) ? 'hi' : language;
+        return {
+          text: formatGroundwaterResponse(entry, location, trendMatch, userLang)
+        };
+      } else {
+        return {
+          text: `
+<div class="bg-card border border-border rounded-xl p-4 my-4 text-base text-foreground shadow-sm">
+  <h2 class="text-lg font-semibold text-primary mb-2">No Data Available</h2>
+  <p>Currently, real-time groundwater data for <span class="font-medium">${location}</span> is not available. Please try another location.</p>
+</div>
+          `.trim()
+        };
+      }
     }
-    
-    // Predictive insights and forecasting
-    if (message.includes('predict') || message.includes('forecast') || message.includes('future') || message.includes('trend')) {
-      return "I can provide 5-year predictive forecasts for your area using our AI models. These forecasts analyze historical patterns, seasonal variations, and climate data. Please share your location to access region-specific predictive insights and trend analysis.";
-    }
-    
-    // Flood risk queries
-    if (message.includes('flood') || message.includes('risk') || message.includes('danger')) {
-      return "I can assess flood risks and provide early warning insights for your region. Our models analyze water levels, rainfall patterns, and historical flood data. Location access will allow me to provide specific risk assessments and safety recommendations for your area.";
-    }
-    
-    // Conservation and water management
-    if (message.includes('conserv') || message.includes('save') || message.includes('management')) {
-      const template = getResponseTemplate('conservation');
-      return `${template} Based on your local water data: 1) Implement drip irrigation systems 2) Harvest rainwater during monsoons 3) Use drought-resistant crop varieties 4) Monitor and fix leaks promptly 5) Apply mulching techniques to reduce evaporation. I can provide location-specific conservation strategies once you share your area.`;
-    }
-    
-    // Agricultural/farming queries
-    if (message.includes('crop') || message.includes('farm') || message.includes('agricult')) {
-      return "For water-efficient agriculture in your region, I can recommend optimal crop selection, irrigation timing, and water management practices. Our data includes soil moisture patterns and seasonal water availability. Please share your location for tailored agricultural water management advice.";
-    }
-    
-    // Status and monitoring
-    if (message.includes('status') || message.includes('monitor') || message.includes('current')) {
-      return "I can provide real-time status updates for groundwater and surface water in your area. This includes current levels, recent changes, and monitoring alerts. To access your local water status dashboard, please allow location access.";
-    }
-    
-    // Data accuracy response - when no specific data available
-    if (message.includes('data') || message.includes('accuracy') || message.includes('source')) {
-      return "All my responses are based on verified water monitoring data from government sensors, satellite imagery, and community contributions. If I don't have specific information for your query, I'll clearly state that and offer alternative assistance. What specific water data would you like me to help you access?";
-    }
-    
-    // Greeting responses
-    if (message.includes('hello') || message.includes('hi') || message.includes('hey') || message.includes('नमस्ते')) {
-      return getRandomGreeting();
-    }
-    
-    // Default contextual response - always relate back to water data capabilities
-    return "I'm designed to provide accurate water-level data, predictive insights, and conservation guidance. Could you specify what type of water information you're looking for? I can help with current levels, forecasts, flood risks, or conservation strategies for your area.";
+
+    // Fallback: generic response
+    return {
+      text: `
+<div class="bg-card border border-border rounded-xl p-4 my-4 text-base text-foreground shadow-sm">
+  <h2 class="text-lg font-semibold text-primary mb-2">How can I help?</h2>
+  <p>Ask about groundwater levels, trends, or status for any city or state in India. For example:</p>
+  <ul class="list-disc list-inside space-y-1">
+    <li>What is the groundwater level of Mumbai?</li>
+    <li>Show groundwater trend of Pune.</li>
+    <li>Is the water status safe in Delhi?</li>
+  </ul>
+</div>
+      `.trim()
+    };
   };
 
   const handleSendMessage = async () => {
@@ -107,18 +185,18 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
     setInputText("");
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
+    const { text, chart } = await simulateAIResponse(userMessage.text);
+
     const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: simulateAIResponse(inputText),
-        sender: 'bot',
-        timestamp: new Date(),
-        showFeedback: true
-      };
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
-    }, 1500);
+      id: (Date.now() + 1).toString(),
+      text,
+      sender: 'bot',
+      timestamp: new Date(),
+      showFeedback: true
+    };
+    setMessages(prev => [...prev, botResponse]);
+    setChartComponent(chart || null);
+    setIsTyping(false);
   };
 
   const handleQuickAction = (action: string) => {
@@ -136,7 +214,6 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
   const handleFeedback = (messageId: string, feedback: 'positive' | 'negative', correction?: string) => {
     const feedbackEntry = { messageId, feedback, correction };
     setFeedbackData(prev => [...prev, feedbackEntry]);
-    
     // In a real app, this would be sent to a backend
     console.log('Feedback collected:', feedbackEntry);
   };
@@ -169,7 +246,12 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
                   : 'bg-card border border-border text-card-foreground rounded-bl-md'
               }`}
             >
-              <div className="text-sm leading-relaxed">{message.text}</div>
+              {/* Render formatted HTML for bot, plain text for user */}
+              <div className="text-sm leading-relaxed">
+                {message.sender === 'bot'
+                  ? <span dangerouslySetInnerHTML={{ __html: message.text }} />
+                  : message.text}
+              </div>
               <div className={`text-xs mt-2 opacity-70 ${
                 message.sender === 'user' ? 'text-white/80' : 'text-muted-foreground'
               }`}>
@@ -187,7 +269,10 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
             </div>
           </div>
         ))}
-        
+        {/* Chart below the last bot message */}
+        {chartComponent && (
+          <div>{chartComponent}</div>
+        )}
         {isTyping && (
           <div className="flex justify-start">
             <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
@@ -203,6 +288,16 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
       </div>
 
       <div className="space-y-3">
+        {/* Language Selector */}
+        <select
+          value={selectedLanguage}
+          onChange={e => setSelectedLanguage(e.target.value as 'en' | 'hi')}
+          className="border border-border rounded px-2 py-1 bg-card text-foreground"
+        >
+          <option value="en">English</option>
+          <option value="hi">हिन्दी</option>
+        </select>
+
         {/* Voice Controls */}
         <VoiceControls 
           onSpeechResult={handleSpeechResult}
@@ -219,7 +314,7 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
             className="transition-all duration-300 hover:shadow-water"
           >
             <MapPin className="w-4 h-4 mr-2" />
-            {isLocationLoading ? 'Getting Location...' : 'Check My Location'}
+            {isLocationLoading ? 'Getting Location...' : labels[language].checkLocation}
           </Button>
           <Button
             variant="outline"
@@ -228,7 +323,7 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
             className="transition-all duration-300 hover:shadow-water"
           >
             <Droplets className="w-4 h-4 mr-2" />
-            Conservation Tips
+            {labels[language].conservationTips}
           </Button>
           <Button
             variant="outline"
@@ -237,7 +332,7 @@ export const ChatInterface = ({ onLocationRequest, isLocationLoading }: ChatInte
             className="transition-all duration-300 hover:shadow-water"
           >
             <TrendingUp className="w-4 h-4 mr-2" />
-            Trends
+            {labels[language].trends}
           </Button>
         </div>
 
